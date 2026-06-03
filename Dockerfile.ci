@@ -1,0 +1,41 @@
+# CI Dockerfile: uses pre-built binaries from the workflow (faster than building in Docker)
+# The workflow downloads binaries to ./dist/ before calling docker build.
+
+FROM alpine:3.19
+
+RUN apk add --no-cache ca-certificates tzdata
+
+WORKDIR /app
+
+# Copy pre-built binaries (injected by CI workflow)
+COPY dist/dns-filter-linux-amd64  /usr/local/bin/dns-filter-amd64
+COPY dist/dns-filter-linux-arm64  /usr/local/bin/dns-filter-arm64
+COPY dist/ars-convert-linux-amd64 /usr/local/bin/ars-convert-amd64
+COPY dist/ars-convert-linux-arm64 /usr/local/bin/ars-convert-arm64
+
+# Select the right binary at build time based on TARGETARCH
+ARG TARGETARCH
+RUN case "$TARGETARCH" in \
+      amd64) cp /usr/local/bin/dns-filter-amd64  /usr/local/bin/dns-filter  && \
+             cp /usr/local/bin/ars-convert-amd64 /usr/local/bin/ars-convert ;; \
+      arm64) cp /usr/local/bin/dns-filter-arm64  /usr/local/bin/dns-filter  && \
+             cp /usr/local/bin/ars-convert-arm64 /usr/local/bin/ars-convert ;; \
+      *)     echo "Unsupported arch: $TARGETARCH" && exit 1 ;; \
+    esac && \
+    rm /usr/local/bin/dns-filter-amd64 /usr/local/bin/dns-filter-arm64 \
+       /usr/local/bin/ars-convert-amd64 /usr/local/bin/ars-convert-arm64 && \
+    chmod +x /usr/local/bin/dns-filter /usr/local/bin/ars-convert
+
+COPY config.example.json /etc/dns-filter/config.json
+
+# Create rules directory
+RUN mkdir -p /etc/dns-filter/rules
+
+EXPOSE 53/udp 53/tcp 3000/tcp
+
+VOLUME ["/etc/dns-filter"]
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget -qO- http://localhost:3000/api/stats || exit 1
+
+ENTRYPOINT ["dns-filter", "--config", "/etc/dns-filter/config.json"]

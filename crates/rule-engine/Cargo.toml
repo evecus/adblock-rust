@@ -1,0 +1,14 @@
+[package]
+name = "rule-engine"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ars-format = { path = "../ars-format" }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+arc-swap = { workspace = true }
+fst = { workspace = true }
+regex = { workspace = true }
+parking_lot = { workspace = true }

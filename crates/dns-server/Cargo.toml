@@ -1,0 +1,26 @@
+[package]
+name = "dns-server"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "dns-filter"
+path = "src/main.rs"
+
+[dependencies]
+ars-format = { path = "../ars-format" }
+rule-engine = { path = "../rule-engine" }
+web-api = { path = "../web-api" }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+bytes = { workspace = true }
+chrono = { workspace = true }
+dashmap = { workspace = true }
+arc-swap = { workspace = true }
+parking_lot = { workspace = true }
+clap = { workspace = true }

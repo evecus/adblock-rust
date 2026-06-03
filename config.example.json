@@ -1,0 +1,28 @@
+{
+  "dns": {
+    "bind": "0.0.0.0:53",
+    "block_mode": "nxdomain",
+    "query_log_size": 10000,
+    "block_ttl": 3600,
+    "cache_size": 50000
+  },
+  "upstream": {
+    "servers": ["8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53"],
+    "timeout_ms": 3000,
+    "failover": true
+  },
+  "rulesets": [
+    {
+      "name": "Default Blocklist",
+      "path": "/etc/dns-filter/rules/default.ars",
+      "enabled": true
+    }
+  ],
+  "web": {
+    "bind": "0.0.0.0:3000",
+    "password": null
+  },
+  "log": {
+    "level": "info"
+  }
+}

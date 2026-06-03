@@ -1,0 +1,18 @@
+[package]
+name = "ars-convert"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "ars-convert"
+path = "src/main.rs"
+
+[dependencies]
+ars-format = { path = "../ars-format" }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+regex = { workspace = true }

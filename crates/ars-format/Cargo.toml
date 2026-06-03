@@ -1,0 +1,19 @@
+[package]
+name = "ars-format"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+zstd = { workspace = true }
+fst = { workspace = true }
+aho-corasick = { workspace = true }
+regex = { workspace = true }
+bloomfilter = { workspace = true }
+crc32fast = { workspace = true }
+byteorder = { workspace = true }
+bytes = { workspace = true }
+chrono = { workspace = true }

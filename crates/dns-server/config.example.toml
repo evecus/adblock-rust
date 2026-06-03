@@ -1,0 +1,40 @@
+# dns-filter configuration
+
+[dns]
+# UDP bind address for DNS
+bind = "0.0.0.0:53"
+# Block mode: "nxdomain" | "zeroip" | "refused"
+block_mode = "nxdomain"
+# Number of recent queries to keep in the query log
+query_log_size = 10000
+# TTL for blocked responses (seconds)
+block_ttl = 3600
+# DNS answer cache size (entries)
+cache_size = 50000
+
+[upstream]
+# Upstream DNS resolvers (UDP only for now)
+servers = ["8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53"]
+# Query timeout in milliseconds
+timeout_ms = 3000
+# Try next server on timeout
+failover = true
+
+[[rulesets]]
+name = "Default Blocklist"
+path = "/etc/dns-filter/rules/default.ars"
+enabled = true
+
+# [[rulesets]]
+# name = "Custom list"
+# path = "/etc/dns-filter/rules/custom.ars"
+# enabled = true
+
+[web]
+# Web UI / REST API bind address
+bind = "0.0.0.0:3000"
+# Optional: set a password for the web UI
+# password = "changeme"
+
+[log]
+level = "info"
