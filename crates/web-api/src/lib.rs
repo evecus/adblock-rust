@@ -8,7 +8,7 @@ use std::thread;
 use anyhow::Result;
 use serde_json::{json, Value};
 use tiny_http::{Header, Method, Request, Response, Server};
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 pub trait AppStateApi: Send + Sync + 'static {
     fn query_recent(&self, n: usize, filter: Option<&str>) -> Vec<Value>;
