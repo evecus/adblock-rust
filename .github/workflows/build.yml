@@ -33,6 +33,8 @@ jobs:
       - name: Run tests
         run: cargo test --workspace
 
+      - name: Check formatting
+        run: cargo fmt --all -- --check
 
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings -D unused_imports -D dead_code
@@ -50,10 +52,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         working-directory: frontend
-        run: npm install
+        run: npm ci
 
       - name: Build
         working-directory: frontend
@@ -70,7 +74,7 @@ jobs:
   # Job 3: Build binaries for linux/amd64 and linux/arm64
   # ─────────────────────────────────────────────────────────────
   build:
-    name: Build (${{ matrix.target }})
+    name: Build (${{ matrix.artifact }})
     runs-on: ubuntu-latest
     needs: [test, frontend]
 
@@ -80,10 +84,8 @@ jobs:
         include:
           - target: x86_64-unknown-linux-musl
             artifact: amd64
-            linker: musl-tools
           - target: aarch64-unknown-linux-musl
             artifact: arm64
-            linker: gcc-aarch64-linux-gnu
 
     steps:
       - uses: actions/checkout@v4
@@ -93,18 +95,33 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install cross-compile toolchain
+      # ── amd64: standard musl-tools is enough ──────────────────
+      - name: Install amd64 toolchain
+        if: matrix.artifact == 'amd64'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends \
-            ${{ matrix.linker }} musl-tools
+          sudo apt-get install -y --no-install-recommends musl-tools
 
-      - name: Configure cargo for cross-compile
+      # ── arm64: need a real musl cross-compiler with musl sysroot
+      #    apt's gcc-aarch64-linux-gnu uses glibc headers → zstd-sys fails.
+      #    musl.cc ships a self-contained aarch64-linux-musl-gcc.
+      - name: Install arm64 musl cross toolchain
+        if: matrix.artifact == 'arm64'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends curl xz-utils
+          curl -sSfL "https://musl.cc/aarch64-linux-musl-cross.tgz" \
+            -o /tmp/musl-cross.tgz
+          sudo tar -xzf /tmp/musl-cross.tgz -C /opt
+          echo "/opt/aarch64-linux-musl-cross/bin" >> $GITHUB_PATH
+
+      - name: Configure cargo linker (arm64 only)
+        if: matrix.artifact == 'arm64'
         run: |
           mkdir -p ~/.cargo
           cat >> ~/.cargo/config.toml << 'EOF'
           [target.aarch64-unknown-linux-musl]
-          linker = "aarch64-linux-gnu-gcc"
+          linker = "aarch64-linux-musl-gcc"
           EOF
 
       - name: Cache cargo registry
@@ -123,25 +140,37 @@ jobs:
           name: frontend-dist
           path: crates/web-api/src/dist/
 
-      - name: Build dns-filter
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-gnu-gcc
+      - name: Build (amd64)
+        if: matrix.artifact == 'amd64'
         run: |
           cargo build --release \
-            --bin dns-filter \
-            --bin ars-convert \
-            --target ${{ matrix.target }}
+            --bin dns-filter --bin ars-convert \
+            --target x86_64-unknown-linux-musl
+
+      - name: Build (arm64)
+        if: matrix.artifact == 'arm64'
+        env:
+          # cc-rs reads these to pick the C compiler for the target triple.
+          # Without this, cc-rs falls back to aarch64-linux-gnu-gcc (glibc)
+          # which lacks the musl sysroot → zstd-sys fails to compile.
+          CC_aarch64_unknown_linux_musl: aarch64-linux-musl-gcc
+          CXX_aarch64_unknown_linux_musl: aarch64-linux-musl-g++
+          AR_aarch64_unknown_linux_musl: aarch64-linux-musl-ar
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-musl-gcc
+        run: |
+          cargo build --release \
+            --bin dns-filter --bin ars-convert \
+            --target aarch64-unknown-linux-musl
 
       - name: Strip binaries
         run: |
-          TARGET=${{ matrix.target }}
-          STRIP=strip
-          # Use cross-strip for arm64
-          if [[ "$TARGET" == aarch64* ]]; then
-            STRIP=aarch64-linux-gnu-strip
+          if [[ "${{ matrix.artifact }}" == "arm64" ]]; then
+            STRIP=aarch64-linux-musl-strip
+          else
+            STRIP=strip
           fi
-          $STRIP target/$TARGET/release/dns-filter
-          $STRIP target/$TARGET/release/ars-convert
+          $STRIP target/${{ matrix.target }}/release/dns-filter
+          $STRIP target/${{ matrix.target }}/release/ars-convert
 
       - name: Collect artifacts
         run: |
@@ -192,24 +221,20 @@ jobs:
           VERSION=${{ steps.ver.outputs.version }}
           chmod +x dist/*
 
-          # amd64 archive
           tar -czf dist/dns-filter-${VERSION}-linux-amd64.tar.gz \
             -C dist dns-filter-linux-amd64 ars-convert-linux-amd64 \
             -C $GITHUB_WORKSPACE config.example.json README.md
 
-          # arm64 archive
           tar -czf dist/dns-filter-${VERSION}-linux-arm64.tar.gz \
             -C dist dns-filter-linux-arm64 ars-convert-linux-arm64 \
             -C $GITHUB_WORKSPACE config.example.json README.md
 
-          # Generate checksums
           cd dist
-          sha256sum dns-filter-${VERSION}-linux-amd64.tar.gz \
-                    dns-filter-${VERSION}-linux-arm64.tar.gz \
-                    dns-filter-linux-amd64 \
-                    dns-filter-linux-arm64 \
-                    ars-convert-linux-amd64 \
-                    ars-convert-linux-arm64 \
+          sha256sum \
+            dns-filter-${VERSION}-linux-amd64.tar.gz \
+            dns-filter-${VERSION}-linux-arm64.tar.gz \
+            dns-filter-linux-amd64 dns-filter-linux-arm64 \
+            ars-convert-linux-amd64 ars-convert-linux-arm64 \
             > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
@@ -230,19 +255,9 @@ jobs:
             ### 快速开始
 
             ```bash
-            # 1. 下载并解压
             tar -xzf dns-filter-*-linux-amd64.tar.gz
-
-            # 2. 转换规则文件
             ./ars-convert convert blocklist.txt -o rules.ars
-            # 或从 mihomo YAML
-            ./ars-convert convert rules.yaml -o rules.ars
-
-            # 3. 编辑配置
             cp config.example.json config.json
-            # 修改 rulesets[0].path 指向你的 rules.ars
-
-            # 4. 运行（需要 root 绑定 53 端口）
             sudo ./dns-filter --config config.json
             # Web UI: http://localhost:3000
             ```
@@ -287,7 +302,7 @@ jobs:
           name: binaries-arm64
           path: dist/
 
-      - name: Set up QEMU (for multi-arch manifest)
+      - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
@@ -322,5 +337,4 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            VERSION=${{ github.ref_name }}
+          build-args: VERSION=${{ github.ref_name }}
