@@ -16,8 +16,7 @@ mod integration_tests {
     use crate::builder::reverse_labels;
 
     fn make_ars(rules: Vec<Rule>) -> Vec<u8> {
-        let mut builder = ArsBuilder::new()
-            .with_compression(format::Compression::None);
+        let mut builder = ArsBuilder::new().with_compression(format::Compression::None);
         builder.add_rules(rules);
         let mut buf = Vec::new();
         builder.build(&mut buf).unwrap();
@@ -29,7 +28,11 @@ mod integration_tests {
         let rules = vec![Rule::block_exact("ads.example.com")];
         let data = make_ars(rules);
         let reader = ArsReader::from_bytes(&data).unwrap();
-        assert!(reader.block_exact.as_ref().unwrap().contains("ads.example.com"));
+        assert!(reader
+            .block_exact
+            .as_ref()
+            .unwrap()
+            .contains("ads.example.com"));
         assert!(!reader.block_exact.as_ref().unwrap().contains("example.com"));
     }
 
@@ -89,7 +92,10 @@ mod integration_tests {
         // Tamper with a byte in the middle
         let mid = data.len() / 2;
         data[mid] ^= 0xFF;
-        assert!(matches!(ArsReader::from_bytes(&data), Err(ArsError::ChecksumMismatch { .. })));
+        assert!(matches!(
+            ArsReader::from_bytes(&data),
+            Err(ArsError::ChecksumMismatch { .. })
+        ));
     }
 
     #[test]

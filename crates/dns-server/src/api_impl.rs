@@ -1,13 +1,15 @@
-use std::path::PathBuf;
+use crate::AppState;
 use anyhow::Result;
 use rule_engine::MatchResult;
 use serde_json::Value;
+use std::path::PathBuf;
 use web_api::AppStateApi;
-use crate::AppState;
 
 impl AppStateApi for AppState {
     fn query_recent(&self, n: usize, filter: Option<&str>) -> Vec<Value> {
-        self.log.recent(n, filter).into_iter()
+        self.log
+            .recent(n, filter)
+            .into_iter()
             .map(|e| serde_json::to_value(e).unwrap_or_default())
             .collect()
     }
@@ -17,22 +19,27 @@ impl AppStateApi for AppState {
     }
 
     fn engine_metadata(&self) -> Option<Value> {
-        self.engine.metadata()
+        self.engine
+            .metadata()
             .map(|m| serde_json::to_value(m).unwrap_or_default())
     }
 
-    fn cache_len(&self) -> usize { self.cache.len() }
+    fn cache_len(&self) -> usize {
+        self.cache.len()
+    }
 
     fn test_domain(&self, domain: &str) -> String {
         match self.engine.query(domain) {
-            MatchResult::Block       => "block".into(),
-            MatchResult::Allow       => "allow".into(),
-            MatchResult::Rewrite(t)  => format!("rewrite:{}", t),
-            MatchResult::NoMatch     => "pass".into(),
+            MatchResult::Block => "block".into(),
+            MatchResult::Allow => "allow".into(),
+            MatchResult::Rewrite(t) => format!("rewrite:{}", t),
+            MatchResult::NoMatch => "pass".into(),
         }
     }
 
-    fn reload_rules(&self) -> Result<()> { self.engine.reload() }
+    fn reload_rules(&self) -> Result<()> {
+        self.engine.reload()
+    }
 
     fn get_config(&self) -> Value {
         serde_json::to_value(self.config.read().clone()).unwrap_or_default()
@@ -45,7 +52,10 @@ impl AppStateApi for AppState {
     }
 
     fn get_rulesets(&self) -> Vec<Value> {
-        self.config.read().rulesets.iter()
+        self.config
+            .read()
+            .rulesets
+            .iter()
             .map(|r| serde_json::to_value(r).unwrap_or_default())
             .collect()
     }
@@ -54,10 +64,16 @@ impl AppStateApi for AppState {
         {
             let mut cfg = self.config.write();
             for rs in &mut cfg.rulesets {
-                if rs.name == name { rs.enabled = enabled; }
+                if rs.name == name {
+                    rs.enabled = enabled;
+                }
             }
         }
-        let paths: Vec<PathBuf> = self.config.read().rulesets.iter()
+        let paths: Vec<PathBuf> = self
+            .config
+            .read()
+            .rulesets
+            .iter()
             .filter(|r| r.enabled)
             .map(|r| r.path.clone())
             .collect();

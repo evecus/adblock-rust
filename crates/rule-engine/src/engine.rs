@@ -86,7 +86,9 @@ impl RuleEngine {
         let rule = parse_custom_rule(s)?;
         let mut rules = self.custom_rules.write();
         // Dedup
-        if !rules.iter().any(|r| r.pattern == rule.pattern && r.action == rule.action && r.rule_type == rule.rule_type) {
+        if !rules.iter().any(|r| {
+            r.pattern == rule.pattern && r.action == rule.action && r.rule_type == rule.rule_type
+        }) {
             rules.push(rule);
         }
         Ok(())
@@ -95,17 +97,25 @@ impl RuleEngine {
     pub fn remove_custom_rule(&self, s: &str) -> Result<()> {
         let rule = parse_custom_rule(s)?;
         let mut rules = self.custom_rules.write();
-        rules.retain(|r| !(r.pattern == rule.pattern && r.rule_type == rule.rule_type && r.action == rule.action));
+        rules.retain(|r| {
+            !(r.pattern == rule.pattern && r.rule_type == rule.rule_type && r.action == rule.action)
+        });
         Ok(())
     }
 
     pub fn get_custom_rules(&self) -> Vec<String> {
-        self.custom_rules.read().iter().map(rule_to_string).collect()
+        self.custom_rules
+            .read()
+            .iter()
+            .map(rule_to_string)
+            .collect()
     }
 }
 
 impl Default for RuleEngine {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -114,22 +124,21 @@ fn check_custom(rules: &[Rule], fqdn: &str) -> Option<MatchResult> {
     let domain = fqdn.trim_end_matches('.').to_lowercase();
     for rule in rules {
         let hit = match &rule.rule_type {
-            RuleType::DomainExact   => domain == rule.pattern,
-            RuleType::DomainSuffix  => domain == rule.pattern
-                                    || domain.ends_with(&format!(".{}", rule.pattern)),
-            RuleType::DomainKeyword => domain.contains(&rule.pattern),
-            RuleType::Regex => {
-                regex::Regex::new(&rule.pattern)
-                    .map(|re| re.is_match(&domain))
-                    .unwrap_or(false)
+            RuleType::DomainExact => domain == rule.pattern,
+            RuleType::DomainSuffix => {
+                domain == rule.pattern || domain.ends_with(&format!(".{}", rule.pattern))
             }
+            RuleType::DomainKeyword => domain.contains(&rule.pattern),
+            RuleType::Regex => regex::Regex::new(&rule.pattern)
+                .map(|re| re.is_match(&domain))
+                .unwrap_or(false),
             _ => false,
         };
         if hit {
             return Some(match &rule.action {
-                RuleAction::Block          => MatchResult::Block,
-                RuleAction::Allow          => MatchResult::Allow,
-                RuleAction::Rewrite{target}=> MatchResult::Rewrite(target.clone()),
+                RuleAction::Block => MatchResult::Block,
+                RuleAction::Allow => MatchResult::Allow,
+                RuleAction::Rewrite { target } => MatchResult::Rewrite(target.clone()),
             });
         }
     }
@@ -150,7 +159,7 @@ fn parse_custom_rule(s: &str) -> Result<Rule> {
         return Ok(Rule {
             action: RuleAction::Block,
             rule_type: RuleType::Regex,
-            pattern: s[1..s.len()-1].to_string(),
+            pattern: s[1..s.len() - 1].to_string(),
             source: Some("custom".into()),
         });
     }
@@ -160,11 +169,11 @@ fn parse_custom_rule(s: &str) -> Result<Rule> {
 
 fn rule_to_string(r: &Rule) -> String {
     match (&r.action, &r.rule_type) {
-        (RuleAction::Allow, RuleType::DomainSuffix)  => format!("@@||{}^", r.pattern),
-        (RuleAction::Allow, RuleType::DomainExact)   => format!("@@{}", r.pattern),
-        (RuleAction::Block, RuleType::DomainSuffix)  => format!("||{}^", r.pattern),
+        (RuleAction::Allow, RuleType::DomainSuffix) => format!("@@||{}^", r.pattern),
+        (RuleAction::Allow, RuleType::DomainExact) => format!("@@{}", r.pattern),
+        (RuleAction::Block, RuleType::DomainSuffix) => format!("||{}^", r.pattern),
         (RuleAction::Block, RuleType::DomainKeyword) => format!("||{}^$keyword", r.pattern),
-        (RuleAction::Block, RuleType::Regex)         => format!("/{}/", r.pattern),
+        (RuleAction::Block, RuleType::Regex) => format!("/{}/", r.pattern),
         _ => r.pattern.clone(),
     }
 }

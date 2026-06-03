@@ -27,8 +27,7 @@ pub trait AppStateApi: Send + Sync + 'static {
 }
 
 pub fn run_web_server<S: AppStateApi>(state: Arc<S>, bind: &str) -> Result<()> {
-    let server = Server::http(bind)
-        .map_err(|e| anyhow::anyhow!("HTTP bind failed: {}", e))?;
+    let server = Server::http(bind).map_err(|e| anyhow::anyhow!("HTTP bind failed: {}", e))?;
     info!(bind = %bind, "Web API listening");
 
     // Use 4 threads for HTTP handling
@@ -76,7 +75,8 @@ fn handle_request<S: AppStateApi>(mut req: Request, state: &Arc<S>) {
 
         // ── Query log ────────────────────────────────────────────────────────
         (Method::Get, "/api/queries") => {
-            let limit = params.get("limit")
+            let limit = params
+                .get("limit")
                 .and_then(|v| v.parse::<usize>().ok())
                 .unwrap_or(100)
                 .min(1000);
@@ -85,24 +85,19 @@ fn handle_request<S: AppStateApi>(mut req: Request, state: &Arc<S>) {
         }
 
         // ── Test domain ──────────────────────────────────────────────────────
-        (Method::Get, "/api/test") => {
-            match params.get("domain") {
-                Some(d) => Ok(json!({ "domain": d, "result": state.test_domain(d) })),
-                None => Err("missing ?domain=".to_string()),
-            }
-        }
+        (Method::Get, "/api/test") => match params.get("domain") {
+            Some(d) => Ok(json!({ "domain": d, "result": state.test_domain(d) })),
+            None => Err("missing ?domain=".to_string()),
+        },
 
         // ── Reload rules ─────────────────────────────────────────────────────
-        (Method::Post, "/api/rules/reload") => {
-            state.reload_rules()
-                .map(|_| json!({ "ok": true }))
-                .map_err(|e| e.to_string())
-        }
+        (Method::Post, "/api/rules/reload") => state
+            .reload_rules()
+            .map(|_| json!({ "ok": true }))
+            .map_err(|e| e.to_string()),
 
         // ── Rulesets list ────────────────────────────────────────────────────
-        (Method::Get, "/api/rules/rulesets") => {
-            Ok(json!(state.get_rulesets()))
-        }
+        (Method::Get, "/api/rules/rulesets") => Ok(json!(state.get_rulesets())),
 
         // ── Toggle ruleset: PUT /api/rules/rulesets/<name>/toggle ────────────
         (Method::Put, p) if p.starts_with("/api/rules/rulesets/") && p.ends_with("/toggle") => {
@@ -113,19 +108,23 @@ fn handle_request<S: AppStateApi>(mut req: Request, state: &Arc<S>) {
             let enabled = body
                 .and_then(|v| v.get("enabled").and_then(|e| e.as_bool()))
                 .unwrap_or(true);
-            state.toggle_ruleset(name, enabled)
+            state
+                .toggle_ruleset(name, enabled)
                 .map(|_| json!({ "ok": true }))
                 .map_err(|e| e.to_string())
         }
 
         // ── Custom rules ─────────────────────────────────────────────────────
-        (Method::Get, "/api/rules/custom") => {
-            Ok(json!(state.get_custom_rules()))
-        }
+        (Method::Get, "/api/rules/custom") => Ok(json!(state.get_custom_rules())),
         (Method::Post, "/api/rules/custom") => {
             let body = read_body_json(&mut req);
-            match body.and_then(|v| v.get("rule").and_then(|r| r.as_str()).map(|s| s.to_string())) {
-                Some(rule) => state.add_custom_rule(&rule)
+            match body.and_then(|v| {
+                v.get("rule")
+                    .and_then(|r| r.as_str())
+                    .map(|s| s.to_string())
+            }) {
+                Some(rule) => state
+                    .add_custom_rule(&rule)
                     .map(|_| json!({ "ok": true }))
                     .map_err(|e| e.to_string()),
                 None => Err("missing field: rule".into()),
@@ -133,8 +132,13 @@ fn handle_request<S: AppStateApi>(mut req: Request, state: &Arc<S>) {
         }
         (Method::Delete, "/api/rules/custom") => {
             let body = read_body_json(&mut req);
-            match body.and_then(|v| v.get("rule").and_then(|r| r.as_str()).map(|s| s.to_string())) {
-                Some(rule) => state.remove_custom_rule(&rule)
+            match body.and_then(|v| {
+                v.get("rule")
+                    .and_then(|r| r.as_str())
+                    .map(|s| s.to_string())
+            }) {
+                Some(rule) => state
+                    .remove_custom_rule(&rule)
                     .map(|_| json!({ "ok": true }))
                     .map_err(|e| e.to_string()),
                 None => Err("missing field: rule".into()),
@@ -146,7 +150,8 @@ fn handle_request<S: AppStateApi>(mut req: Request, state: &Arc<S>) {
         (Method::Put, "/api/config") => {
             let body = read_body_json(&mut req);
             match body {
-                Some(v) => state.update_config(v)
+                Some(v) => state
+                    .update_config(v)
                     .map(|_| json!({ "ok": true }))
                     .map_err(|e| e.to_string()),
                 None => Err("invalid JSON body".into()),
@@ -168,7 +173,7 @@ fn handle_request<S: AppStateApi>(mut req: Request, state: &Arc<S>) {
             let _ = req.respond(
                 Response::empty(204)
                     .with_header(cors_header())
-                    .with_header(cors_allow_methods())
+                    .with_header(cors_allow_methods()),
             );
             return;
         }
@@ -217,10 +222,7 @@ fn parse_qs(qs: &str) -> std::collections::HashMap<String, String> {
     let mut map = std::collections::HashMap::new();
     for pair in qs.split('&') {
         if let Some((k, v)) = pair.split_once('=') {
-            map.insert(
-                url_decode(k),
-                url_decode(v),
-            );
+            map.insert(url_decode(k), url_decode(v));
         }
     }
     map
@@ -232,7 +234,7 @@ fn url_decode(s: &str) -> String {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let (Some(h), Some(l)) = (hex_val(bytes[i+1]), hex_val(bytes[i+2])) {
+            if let (Some(h), Some(l)) = (hex_val(bytes[i + 1]), hex_val(bytes[i + 2])) {
                 out.push(char::from(h << 4 | l));
                 i += 3;
                 continue;
@@ -267,7 +269,11 @@ fn cors_header() -> Header {
     Header::from_bytes("Access-Control-Allow-Origin", "*").unwrap()
 }
 fn cors_allow_methods() -> Header {
-    Header::from_bytes("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS").unwrap()
+    Header::from_bytes(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, DELETE, OPTIONS",
+    )
+    .unwrap()
 }
 
 // ── Embedded fallback HTML (replaced by build script with real frontend) ─────

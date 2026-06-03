@@ -8,7 +8,11 @@ use std::fmt;
 
 #[derive(Debug)]
 pub struct DnsError(pub String);
-impl fmt::Display for DnsError { fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "DNS: {}", self.0) } }
+impl fmt::Display for DnsError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "DNS: {}", self.0)
+    }
+}
 impl std::error::Error for DnsError {}
 
 pub type DnsResult<T> = Result<T, DnsError>;
@@ -19,8 +23,17 @@ macro_rules! dns_err {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-pub mod rcode { pub const NO_ERROR: u16 = 0; pub const NX_DOMAIN: u16 = 3; pub const REFUSED: u16 = 5; pub const SERV_FAIL: u16 = 2; }
-pub mod qtype { pub const A: u16 = 1; pub const CNAME: u16 = 5; pub const AAAA: u16 = 28; }
+pub mod rcode {
+    pub const NO_ERROR: u16 = 0;
+    pub const NX_DOMAIN: u16 = 3;
+    pub const REFUSED: u16 = 5;
+    pub const SERV_FAIL: u16 = 2;
+}
+pub mod qtype {
+    pub const A: u16 = 1;
+    pub const CNAME: u16 = 5;
+    pub const AAAA: u16 = 28;
+}
 pub const CLASS_IN: u16 = 1;
 
 // ── DNS Message ──────────────────────────────────────────────────────────────
@@ -37,7 +50,7 @@ pub struct DnsMessage {
 
 #[derive(Debug, Clone)]
 pub struct Question {
-    pub name: String,   // lowercase FQDN without trailing dot
+    pub name: String, // lowercase FQDN without trailing dot
     pub qtype: u16,
     pub qclass: u16,
 }
@@ -78,11 +91,17 @@ impl DnsMessage {
         for _ in 0..qdcount {
             let (name, new_pos) = parse_name(buf, pos)?;
             pos = new_pos;
-            if pos + 4 > buf.len() { return Err(dns_err!("truncated question")); }
-            let qtype  = u16::from_be_bytes([buf[pos], buf[pos+1]]);
-            let qclass = u16::from_be_bytes([buf[pos+2], buf[pos+3]]);
+            if pos + 4 > buf.len() {
+                return Err(dns_err!("truncated question"));
+            }
+            let qtype = u16::from_be_bytes([buf[pos], buf[pos + 1]]);
+            let qclass = u16::from_be_bytes([buf[pos + 2], buf[pos + 3]]);
             pos += 4;
-            questions.push(Question { name, qtype, qclass });
+            questions.push(Question {
+                name,
+                qtype,
+                qclass,
+            });
         }
 
         let mut answers = Vec::with_capacity(ancount);
@@ -100,7 +119,14 @@ impl DnsMessage {
         // skip additionals for brevity
         let _ = arcount;
 
-        Ok(Self { id, flags, questions, answers, authorities, additionals: vec![] })
+        Ok(Self {
+            id,
+            flags,
+            questions,
+            answers,
+            authorities,
+            additionals: vec![],
+        })
     }
 
     /// Is this a standard query (QR=0, OPCODE=0)?
@@ -199,11 +225,29 @@ impl DnsMessage {
         let mut resp = self.make_response(rcode::NO_ERROR);
         if let Some(q) = self.questions.first() {
             let rr = if let Ok(ip4) = target.parse::<std::net::Ipv4Addr>() {
-                ResourceRecord { name: q.name.clone(), rtype: qtype::A,    rclass: CLASS_IN, ttl, rdata: RData::A(ip4.octets()) }
+                ResourceRecord {
+                    name: q.name.clone(),
+                    rtype: qtype::A,
+                    rclass: CLASS_IN,
+                    ttl,
+                    rdata: RData::A(ip4.octets()),
+                }
             } else if let Ok(ip6) = target.parse::<std::net::Ipv6Addr>() {
-                ResourceRecord { name: q.name.clone(), rtype: qtype::AAAA, rclass: CLASS_IN, ttl, rdata: RData::Aaaa(ip6.octets()) }
+                ResourceRecord {
+                    name: q.name.clone(),
+                    rtype: qtype::AAAA,
+                    rclass: CLASS_IN,
+                    ttl,
+                    rdata: RData::Aaaa(ip6.octets()),
+                }
             } else {
-                ResourceRecord { name: q.name.clone(), rtype: qtype::CNAME, rclass: CLASS_IN, ttl, rdata: RData::Cname(target.to_string()) }
+                ResourceRecord {
+                    name: q.name.clone(),
+                    rtype: qtype::CNAME,
+                    rclass: CLASS_IN,
+                    ttl,
+                    rdata: RData::Cname(target.to_string()),
+                }
             };
             resp.answers.push(rr);
         }
@@ -229,27 +273,39 @@ fn parse_name(buf: &[u8], start: usize) -> DnsResult<(String, usize)> {
     let mut iterations = 0;
 
     loop {
-        if iterations > 128 { return Err(dns_err!("name compression loop")); }
+        if iterations > 128 {
+            return Err(dns_err!("name compression loop"));
+        }
         iterations += 1;
 
-        if pos >= buf.len() { return Err(dns_err!("name OOB")); }
+        if pos >= buf.len() {
+            return Err(dns_err!("name OOB"));
+        }
         let len = buf[pos] as usize;
 
         if len == 0 {
-            if !jumped { end_pos = pos + 1; }
+            if !jumped {
+                end_pos = pos + 1;
+            }
             break;
         }
         if len & 0xC0 == 0xC0 {
             // Pointer
-            if pos + 1 >= buf.len() { return Err(dns_err!("pointer OOB")); }
-            let ptr = (len & 0x3F) << 8 | buf[pos+1] as usize;
-            if !jumped { end_pos = pos + 2; }
+            if pos + 1 >= buf.len() {
+                return Err(dns_err!("pointer OOB"));
+            }
+            let ptr = (len & 0x3F) << 8 | buf[pos + 1] as usize;
+            if !jumped {
+                end_pos = pos + 2;
+            }
             jumped = true;
             pos = ptr;
         } else if len & 0xC0 == 0 {
             pos += 1;
-            if pos + len > buf.len() { return Err(dns_err!("label OOB")); }
-            let label = std::str::from_utf8(&buf[pos..pos+len])
+            if pos + len > buf.len() {
+                return Err(dns_err!("label OOB"));
+            }
+            let label = std::str::from_utf8(&buf[pos..pos + len])
                 .map_err(|_| dns_err!("invalid UTF-8 label"))?
                 .to_lowercase();
             labels.push(label);
@@ -264,16 +320,22 @@ fn parse_name(buf: &[u8], start: usize) -> DnsResult<(String, usize)> {
 
 fn parse_rr(buf: &[u8], pos: usize) -> DnsResult<(ResourceRecord, usize)> {
     let (name, mut pos) = parse_name(buf, pos)?;
-    if pos + 10 > buf.len() { return Err(dns_err!("RR header truncated")); }
-    let rtype  = u16::from_be_bytes([buf[pos],   buf[pos+1]]);
-    let rclass = u16::from_be_bytes([buf[pos+2], buf[pos+3]]);
-    let ttl    = u32::from_be_bytes([buf[pos+4], buf[pos+5], buf[pos+6], buf[pos+7]]);
-    let rdlen  = u16::from_be_bytes([buf[pos+8], buf[pos+9]]) as usize;
+    if pos + 10 > buf.len() {
+        return Err(dns_err!("RR header truncated"));
+    }
+    let rtype = u16::from_be_bytes([buf[pos], buf[pos + 1]]);
+    let rclass = u16::from_be_bytes([buf[pos + 2], buf[pos + 3]]);
+    let ttl = u32::from_be_bytes([buf[pos + 4], buf[pos + 5], buf[pos + 6], buf[pos + 7]]);
+    let rdlen = u16::from_be_bytes([buf[pos + 8], buf[pos + 9]]) as usize;
     pos += 10;
-    if pos + rdlen > buf.len() { return Err(dns_err!("RDATA truncated")); }
-    let rdata_raw = &buf[pos..pos+rdlen];
+    if pos + rdlen > buf.len() {
+        return Err(dns_err!("RDATA truncated"));
+    }
+    let rdata_raw = &buf[pos..pos + rdlen];
     let rdata = match rtype {
-        qtype::A if rdlen == 4 => RData::A([rdata_raw[0], rdata_raw[1], rdata_raw[2], rdata_raw[3]]),
+        qtype::A if rdlen == 4 => {
+            RData::A([rdata_raw[0], rdata_raw[1], rdata_raw[2], rdata_raw[3]])
+        }
         qtype::AAAA if rdlen == 16 => {
             let mut a = [0u8; 16];
             a.copy_from_slice(rdata_raw);
@@ -285,7 +347,16 @@ fn parse_rr(buf: &[u8], pos: usize) -> DnsResult<(ResourceRecord, usize)> {
         }
         _ => RData::Raw(rdata_raw.to_vec()),
     };
-    Ok((ResourceRecord { name, rtype, rclass, ttl, rdata }, pos + rdlen))
+    Ok((
+        ResourceRecord {
+            name,
+            rtype,
+            rclass,
+            ttl,
+            rdata,
+        },
+        pos + rdlen,
+    ))
 }
 
 fn encode_name(buf: &mut Vec<u8>, name: &str) {
@@ -308,7 +379,8 @@ fn encode_rr(buf: &mut Vec<u8>, rr: &ResourceRecord) {
     buf.extend_from_slice(&rr.ttl.to_be_bytes());
     // RDATA
     let rdata_start = buf.len();
-    buf.push(0); buf.push(0); // rdlength placeholder
+    buf.push(0);
+    buf.push(0); // rdlength placeholder
     match &rr.rdata {
         RData::A(ip) => buf.extend_from_slice(ip),
         RData::Aaaa(ip) => buf.extend_from_slice(ip),
@@ -317,8 +389,8 @@ fn encode_rr(buf: &mut Vec<u8>, rr: &ResourceRecord) {
     }
     let rdlen = (buf.len() - rdata_start - 2) as u16;
     let b = rdlen.to_be_bytes();
-    buf[rdata_start]   = b[0];
-    buf[rdata_start+1] = b[1];
+    buf[rdata_start] = b[0];
+    buf[rdata_start + 1] = b[1];
 }
 
 #[cfg(test)]
@@ -334,9 +406,7 @@ mod tests {
             0x00, 0x01, // qdcount=1
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // an/ns/ar
             // question: example.com A IN
-            7, b'e', b'x', b'a', b'm', b'p', b'l', b'e',
-            3, b'c', b'o', b'm',
-            0,          // end
+            7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c', b'o', b'm', 0, // end
             0x00, 0x01, // QTYPE A
             0x00, 0x01, // QCLASS IN
         ];
@@ -359,8 +429,8 @@ mod more_tests {
         buf.extend_from_slice(&id.to_be_bytes());
         buf.extend_from_slice(&0x0100u16.to_be_bytes()); // RD=1
         buf.extend_from_slice(&1u16.to_be_bytes()); // qdcount
-        buf.extend_from_slice(&[0,0, 0,0, 0,0]);   // an/ns/ar
-        // Encode name
+        buf.extend_from_slice(&[0, 0, 0, 0, 0, 0]); // an/ns/ar
+                                                    // Encode name
         for label in name.split('.') {
             buf.push(label.len() as u8);
             buf.extend_from_slice(label.as_bytes());
@@ -388,7 +458,7 @@ mod more_tests {
         let resp = msg.zero_ip(60);
         let parsed = DnsMessage::parse(&resp).unwrap();
         assert_eq!(parsed.answers.len(), 1);
-        assert!(matches!(parsed.answers[0].rdata, RData::A([0,0,0,0])));
+        assert!(matches!(parsed.answers[0].rdata, RData::A([0, 0, 0, 0])));
     }
 
     #[test]
@@ -398,7 +468,7 @@ mod more_tests {
         let resp = msg.rewrite("1.2.3.4", 300);
         let parsed = DnsMessage::parse(&resp).unwrap();
         assert_eq!(parsed.answers.len(), 1);
-        assert!(matches!(parsed.answers[0].rdata, RData::A([1,2,3,4])));
+        assert!(matches!(parsed.answers[0].rdata, RData::A([1, 2, 3, 4])));
     }
 
     #[test]

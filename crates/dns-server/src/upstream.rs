@@ -13,11 +13,18 @@ pub struct Upstream {
 
 impl Upstream {
     pub fn new(servers: Vec<String>, timeout_ms: u64, failover: bool) -> Result<Self> {
-        let addrs = servers.iter()
-            .map(|s| s.parse::<SocketAddr>()
-                .map_err(|e| anyhow!("Bad upstream '{}': {}", s, e)))
+        let addrs = servers
+            .iter()
+            .map(|s| {
+                s.parse::<SocketAddr>()
+                    .map_err(|e| anyhow!("Bad upstream '{}': {}", s, e))
+            })
             .collect::<Result<Vec<_>>>()?;
-        Ok(Self { servers: addrs, timeout: Duration::from_millis(timeout_ms), failover })
+        Ok(Self {
+            servers: addrs,
+            timeout: Duration::from_millis(timeout_ms),
+            failover,
+        })
     }
 
     pub async fn query(&self, query: &[u8]) -> Result<Vec<u8>> {
@@ -28,7 +35,9 @@ impl Upstream {
                 Ok(r) => return Ok(r),
                 Err(e) => {
                     last_err = e;
-                    if !self.failover || i == self.servers.len() - 1 { break; }
+                    if !self.failover || i == self.servers.len() - 1 {
+                        break;
+                    }
                     tracing::warn!(server=%server, "upstream failed, trying next");
                 }
             }

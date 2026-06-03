@@ -1,5 +1,5 @@
-use ars_format::reader::ArsReader;
 use ars_format::builder::reverse_labels;
+use ars_format::reader::ArsReader;
 
 /// Result of a domain query against the ruleset
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -161,9 +161,9 @@ fn suffix_match(set: &fst::Set<Vec<u8>>, domain: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use ars_format::{ArsBuilder, Rule, RuleAction, RuleType};
-    use ars_format::format::Compression;
     use super::*;
+    use ars_format::format::Compression;
+    use ars_format::{ArsBuilder, Rule, RuleAction, RuleType};
 
     fn engine_from_rules(rules: Vec<Rule>) -> ArsReader {
         let mut b = ArsBuilder::new().with_compression(Compression::None);
@@ -177,16 +177,16 @@ mod tests {
     fn test_exact_block() {
         let r = engine_from_rules(vec![Rule::block_exact("ads.example.com")]);
         assert_eq!(match_domain(&r, "ads.example.com"), MatchResult::Block);
-        assert_eq!(match_domain(&r, "example.com"),     MatchResult::NoMatch);
+        assert_eq!(match_domain(&r, "example.com"), MatchResult::NoMatch);
     }
 
     #[test]
     fn test_suffix_block_matches_subdomain() {
         let r = engine_from_rules(vec![Rule::block_suffix("example.com")]);
-        assert_eq!(match_domain(&r, "sub.example.com"),     MatchResult::Block);
-        assert_eq!(match_domain(&r, "deep.sub.example.com"),MatchResult::Block);
-        assert_eq!(match_domain(&r, "example.com"),         MatchResult::Block);
-        assert_eq!(match_domain(&r, "notexample.com"),      MatchResult::NoMatch);
+        assert_eq!(match_domain(&r, "sub.example.com"), MatchResult::Block);
+        assert_eq!(match_domain(&r, "deep.sub.example.com"), MatchResult::Block);
+        assert_eq!(match_domain(&r, "example.com"), MatchResult::Block);
+        assert_eq!(match_domain(&r, "notexample.com"), MatchResult::NoMatch);
     }
 
     #[test]
@@ -196,7 +196,7 @@ mod tests {
             Rule::allow_exact("safe.example.com"),
         ]);
         assert_eq!(match_domain(&r, "safe.example.com"), MatchResult::Allow);
-        assert_eq!(match_domain(&r, "ads.example.com"),  MatchResult::Block);
+        assert_eq!(match_domain(&r, "ads.example.com"), MatchResult::Block);
     }
 
     #[test]
@@ -207,9 +207,9 @@ mod tests {
             pattern: "tracker".into(),
             source: None,
         }]);
-        assert_eq!(match_domain(&r, "tracker.example.com"),  MatchResult::Block);
-        assert_eq!(match_domain(&r, "my-tracker-ads.io"),    MatchResult::Block);
-        assert_eq!(match_domain(&r, "example.com"),          MatchResult::NoMatch);
+        assert_eq!(match_domain(&r, "tracker.example.com"), MatchResult::Block);
+        assert_eq!(match_domain(&r, "my-tracker-ads.io"), MatchResult::Block);
+        assert_eq!(match_domain(&r, "example.com"), MatchResult::NoMatch);
     }
 
     #[test]

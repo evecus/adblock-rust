@@ -307,10 +307,8 @@ mod tests {
 
     #[test]
     fn test_mihomo_typed() {
-        let rules = parse_mihomo(
-            "payload:\n  - DOMAIN-KEYWORD,ads\n  - DOMAIN,exact.com\n",
-        )
-        .unwrap();
+        let rules =
+            parse_mihomo("payload:\n  - DOMAIN-KEYWORD,ads\n  - DOMAIN,exact.com\n").unwrap();
         assert_eq!(rules.len(), 2);
         assert_eq!(rules[0].rule_type, RuleType::DomainKeyword);
         assert_eq!(rules[1].rule_type, RuleType::DomainExact);
@@ -372,9 +370,7 @@ mod more_tests {
 
     #[test]
     fn test_mihomo_quoted_entries() {
-        let rules = parse_mihomo(
-            "payload:\n  - \"DOMAIN,example.com\"\n  - '+.ads.io'\n"
-        ).unwrap();
+        let rules = parse_mihomo("payload:\n  - \"DOMAIN,example.com\"\n  - '+.ads.io'\n").unwrap();
         assert_eq!(rules.len(), 2);
         assert_eq!(rules[0].rule_type, RuleType::DomainExact);
         assert_eq!(rules[1].rule_type, RuleType::DomainSuffix);
@@ -382,9 +378,7 @@ mod more_tests {
 
     #[test]
     fn test_mihomo_keyword() {
-        let rules = parse_mihomo(
-            "payload:\n  - DOMAIN-KEYWORD,doubleclick\n"
-        ).unwrap();
+        let rules = parse_mihomo("payload:\n  - DOMAIN-KEYWORD,doubleclick\n").unwrap();
         assert_eq!(rules[0].rule_type, RuleType::DomainKeyword);
         assert_eq!(rules[0].pattern, "doubleclick");
     }
@@ -392,9 +386,8 @@ mod more_tests {
     #[test]
     fn test_mihomo_ip_cidr_skipped() {
         // IP-CIDR rules should be silently skipped (not supported yet)
-        let rules = parse_mihomo(
-            "payload:\n  - IP-CIDR,1.2.3.0/24\n  - DOMAIN,example.com\n"
-        ).unwrap();
+        let rules =
+            parse_mihomo("payload:\n  - IP-CIDR,1.2.3.0/24\n  - DOMAIN,example.com\n").unwrap();
         assert_eq!(rules.len(), 1);
     }
 

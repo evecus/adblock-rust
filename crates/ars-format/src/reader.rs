@@ -44,9 +44,7 @@ impl ArsReader {
 
         // Verify file-level CRC (last 4 bytes)
         let payload = &data[..data.len() - TRAILER_SIZE];
-        let stored_crc = u32::from_le_bytes(
-            data[data.len() - 4..].try_into().unwrap(),
-        );
+        let stored_crc = u32::from_le_bytes(data[data.len() - 4..].try_into().unwrap());
         let mut hasher = Hasher::new();
         hasher.update(payload);
         let actual_crc = hasher.finalize();
@@ -105,15 +103,13 @@ impl ArsReader {
             cur.set_position((pos + compressed_len) as u64);
 
             let codec = Compression::try_from(codec_byte)?;
-            let decompressed = decompress(raw, codec)
-                .map_err(|e| ArsError::DecompressError(e.to_string()))?;
+            let decompressed =
+                decompress(raw, codec).map_err(|e| ArsError::DecompressError(e.to_string()))?;
 
             let section_id = SectionId::try_from(id_byte)?;
             match section_id {
                 SectionId::Metadata => {
-                    metadata = Some(
-                        serde_json::from_slice(&decompressed).map_err(ArsError::Json)?,
-                    );
+                    metadata = Some(serde_json::from_slice(&decompressed).map_err(ArsError::Json)?);
                 }
                 SectionId::BlockExact => block_exact_bytes = Some(decompressed),
                 SectionId::BlockSuffix => block_suffix_bytes = Some(decompressed),
@@ -216,8 +212,6 @@ impl ArsReader {
 fn decompress(data: &[u8], codec: Compression) -> Result<Vec<u8>> {
     match codec {
         Compression::None => Ok(data.to_vec()),
-        Compression::Zstd => {
-            zstd::decode_all(data).context("zstd decompression failed")
-        }
+        Compression::Zstd => zstd::decode_all(data).context("zstd decompression failed"),
     }
 }

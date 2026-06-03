@@ -1,10 +1,16 @@
-use std::time::{Duration, Instant};
 use dashmap::DashMap;
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct CacheKey { pub name: String, pub qtype: u16 }
+pub struct CacheKey {
+    pub name: String,
+    pub qtype: u16,
+}
 
-struct Entry { data: Vec<u8>, expires: Instant }
+struct Entry {
+    data: Vec<u8>,
+    expires: Instant,
+}
 
 pub struct DnsCache {
     inner: DashMap<CacheKey, Entry>,
@@ -13,7 +19,10 @@ pub struct DnsCache {
 
 impl DnsCache {
     pub fn new(max_size: usize) -> Self {
-        Self { inner: DashMap::with_capacity(max_size.min(65536)), max_size }
+        Self {
+            inner: DashMap::with_capacity(max_size.min(65536)),
+            max_size,
+        }
     }
 
     pub fn get(&self, key: &CacheKey) -> Option<Vec<u8>> {
@@ -28,23 +37,32 @@ impl DnsCache {
     }
 
     pub fn insert(&self, key: CacheKey, data: Vec<u8>, ttl_secs: u32) {
-        if self.inner.len() >= self.max_size { self.evict(); }
-        self.inner.insert(key, Entry {
-            data,
-            expires: Instant::now() + Duration::from_secs(ttl_secs as u64),
-        });
+        if self.inner.len() >= self.max_size {
+            self.evict();
+        }
+        self.inner.insert(
+            key,
+            Entry {
+                data,
+                expires: Instant::now() + Duration::from_secs(ttl_secs as u64),
+            },
+        );
     }
 
     fn evict(&self) {
         let now = Instant::now();
         // Remove up to 10 expired entries
-        let expired: Vec<_> = self.inner.iter()
+        let expired: Vec<_> = self
+            .inner
+            .iter()
             .filter(|e| e.expires <= now)
             .take(10)
             .map(|e| e.key().clone())
             .collect();
         if !expired.is_empty() {
-            for k in expired { self.inner.remove(&k); }
+            for k in expired {
+                self.inner.remove(&k);
+            }
             return;
         }
         // Fallback: remove arbitrary entry
@@ -55,5 +73,7 @@ impl DnsCache {
         }
     }
 
-    pub fn len(&self) -> usize { self.inner.len() }
+    pub fn len(&self) -> usize {
+        self.inner.len()
+    }
 }
